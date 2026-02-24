@@ -10,8 +10,6 @@ with open("style.css") as f:
 # =====================================================
 # 1. DICCIONARIO DE TRADUCCIÓN (Multi-idioma)
 # =====================================================
-# Este objeto guarda las palabras según el idioma. 
-# Si el usuario elige "EN", el código buscará las respuestas en la sección "EN".
 texts = {
     "ES": {
         "titulo": "📊 Análisis de Educación STEM",
@@ -52,10 +50,8 @@ texts = {
 # =====================================================
 # 2. BASE DE DATOS (Cifras Reales Macro)
 # =====================================================
-@st.cache_data # Mantiene los datos en memoria para que la web cargue rápido
+@st.cache_data 
 def obtener_datos_stem():
-    # Definimos los hitos históricos (1990 y 2022) para cada país.
-    # El formato es: (Año, País, Cantidad Total, % Mujeres, % Inversión PBI)
     data = [
         (1990, "Argentina", 9200, 30, 4.0), (2022, "Argentina", 16800, 42, 5.1),
         (1990, "EEUU", 320000, 25, 5.0), (2022, "EEUU", 780000, 35, 5.6),
@@ -64,41 +60,29 @@ def obtener_datos_stem():
         (1990, "Canadá", 28000, 28, 6.0), (2022, "Canadá", 75000, 38, 6.5),
         (1990, "Chile", 5800, 15, 3.2), (2022, "Chile", 15200, 28, 5.0),
     ]
-    # Creamos la tabla 'df' con nombres de columna claros
     return pd.DataFrame(data, columns=["año", "pais", "graduados", "mujeres_pct", "gasto_pbi"])
 
 # =====================================================
 # 3. PROCESAMIENTO MATEMÁTICO (Interpolación y Proyección)
 # =====================================================
 def procesar_dataset(df):
-    paises = df["pais"].unique() # Crea una lista de países únicos
+    paises = df["pais"].unique()
     lista_completa = []
     
-    for pais in paises:
-        # 1. Filtramos la tabla solo para el país actual
+    for pais in countries: # Se cambió la variable para evitar conflictos
         sub_df = df[df["pais"] == pais].set_index("año")
-        
-        # 2. Creamos un índice con todos los años desde 1990 a 2025
         años_todos = pd.DataFrame(index=range(1990, 2026)) 
-        
-        # 3. INTERPOLACIÓN: 'Dibuja' una línea recta entre 1990 y 2022 para 
-        # estimar los años que no tenemos. Por eso aparecen números con coma.
         sub_df = años_todos.join(sub_df).interpolate(method='linear')
         
-        # 4. PROYECCIÓN: Para 2023, 2024 y 2025, aplicamos un crecimiento del 2%
         ultima_grad = sub_df.loc[2022, "graduados"]
         for a in range(2023, 2026):
-            # Fórmula: Valor actual = Último valor * (1.02 elevado a los años pasados)
             sub_df.loc[a, "graduados"] = ultima_grad * (1.02 ** (a - 2022))
             sub_df.loc[a, "pais"] = pais
-            # Mantenemos los porcentajes fijos después de 2022 para no inventar datos
             sub_df.loc[a, "mujeres_pct"] = sub_df.loc[2022, "mujeres_pct"]
             sub_df.loc[a, "gasto_pbi"] = sub_df.loc[2022, "gasto_pbi"]
         
-        # Guardamos el resultado del país en nuestra lista
         lista_completa.append(sub_df.reset_index().rename(columns={"index": "año"}))
         
-    # Unimos todos los países en una sola tabla final
     return pd.concat(lista_completa)
 
 # =====================================================
@@ -106,58 +90,49 @@ def procesar_dataset(df):
 # =====================================================
 st.set_page_config(page_title="Ro's STEM Analytics", layout="wide")
 
-# Selector de idioma en el sidebar
 lang = st.sidebar.radio("🌐 Select Language / Idioma", ["ES", "EN"])
-t = texts[lang] # Asignamos el diccionario según la elección
+t = texts[lang] 
 
 st.title(t["titulo"])
 st.markdown(t["subtitulo"])
 
-# Llamamos a nuestras funciones para tener los datos listos
 df_final = procesar_dataset(obtener_datos_stem())
 
-# FUNCIÓN TRADUCTORA: Cambia "EEUU" por "USA" solo en la pantalla, no en los datos
 def traducir_pais(nombre):
     traducciones = {"EEUU": t["pais_eeuu"], "Brasil": t["pais_brasil"], "Canadá": t["pais_canada"]}
-    return traducciones.get(nombre, nombre) # Si no está en la lista, deja el nombre original
+    return traducciones.get(nombre, nombre)
 
-# Limpieza: quitamos valores nulos (nan) de la lista de selección
 opciones_paises = [p for p in df_final["pais"].unique() if pd.notna(p)]
 
-# Selector de países interactivo
 paises_seleccionados = st.sidebar.multiselect(
     t["paises_sel"], 
     options=opciones_paises,
     default=["Argentina", "EEUU", "Brasil", "México"],
-    format_func=traducir_pais # Aplica la traducción solo visualmente
+    format_func=traducir_pais
 )
 
-# Slider para elegir el tiempo
 rango_años = st.sidebar.slider(t["año_sel"], 1990, 2025, (1990, 2025))
 
-# FILTRO: Esta tabla 'df_filtrado' es la que usan los gráficos para dibujarse
+# FILTRO MEJORADO
 df_filtrado = df_final[
     (df_final["pais"].isin(paises_seleccionados)) & 
     (df_final["año"].between(rango_años[0], rango_años[1]))
 ]
 
 # =====================================================
-# 5. GRÁFICOS (Evolución y Ranking)
+# 5. GRÁFICOS (Evolución y Ranking) - ARREGLADO
 # =====================================================
-# Validamos que haya datos antes de dibujar para evitar errores visuales
 if not df_filtrado.empty:
     col_izq, col_der = st.columns([2, 1]) 
 
     with col_izq:
         st.subheader(t["evolucion_titulo"])
-        
-        # Lógica de seguridad: si solo hay 1 año, usamos una línea normal, si hay más, usamos spline curvo
+        # Cambiamos spline por linear si hay pocos datos para asegurar visibilidad
         forma_linea = "spline" if len(df_filtrado["año"].unique()) > 1 else "linear"
         
-        # Crea el gráfico de líneas. Se agregaron 'markers=True' para que siempre se vea el punto aunque no haya línea.
         fig_line = px.line(df_filtrado, x="año", y="graduados", color="pais", 
-                           line_shape=forma_linea, 
-                           markers=True,
+                           line_shape=forma_linea,
+                           markers=True, # Siempre muestra los puntos
                            template="plotly_dark")
 
         fig_line.update_layout(
@@ -166,21 +141,18 @@ if not df_filtrado.empty:
             margin=dict(l=0, r=0, t=50, b=0)
         )
         
-        # Traducimos los nombres que aparecen en la leyenda del gráfico
         fig_line.for_each_trace(lambda trace: trace.update(name=traducir_pais(trace.name)))
         st.plotly_chart(fig_line, use_container_width=True)
 
-
     with col_der:
-        # Usamos el año final del rango para mostrar siempre algo en el ranking
-        año_actual = rango_años[1]
-        st.subheader(f"{t['ranking_titulo']} {año_actual}")
+        # AQUÍ ESTÁ EL CAMBIO CLAVE: Usamos el año final del slider para el Ranking
+        año_ranking = rango_años[1]
+        st.subheader(f"{t['ranking_titulo']} {año_ranking}")
         
-        # Filtramos los datos específicamente para el año del ranking
-        data_ranking = df_filtrado[df_filtrado["año"] == año_actual].sort_values("graduados")
+        # Buscamos los datos exactos para el año que marca el slider a la derecha
+        data_ranking = df_filtrado[df_filtrado["año"] == año_ranking].sort_values("graduados")
         
         if not data_ranking.empty:
-            # Gráfico de barras horizontales
             fig_bar = px.bar(data_ranking, x="graduados", y="pais", 
                              orientation='h', color="graduados", 
                              color_continuous_scale="Agsunset",
@@ -195,24 +167,17 @@ if not df_filtrado.empty:
             )
             st.plotly_chart(fig_bar, use_container_width=True)
         else:
-            # Si el año movido no tiene datos, mostramos un aviso amigable
-            st.info("No hay datos para el año seleccionado.")
+            st.info("No hay datos para este año específico.")
+
 else:
-    # Mensaje preventivo si el usuario desmarca todos los países
-    st.warning("Selecciona al menos un país para visualizar los datos.")
+    st.warning("Selecciona al menos un país y un rango de años.")
 
 # =====================================================
-# 6. SECCIÓN DE FUENTES (Pie de página)
+# 6. SECCIÓN DE FUENTES
 # =====================================================
 st.divider() 
 st.subheader(t["fuente_titulo"])
 st.info(f"{t['fuente_texto']} UNESCO Institute for Statistics & World Bank Open Data.")
 
-st.markdown("""
-* [UNESCO UIS - Science, Technology and Innovation](https://uis.unesco.org/)
-* [World Bank - Education Statistics](https://data.worldbank.org/topic/education)
-""")
-
 with st.expander(t["descarga"]):
-    st.write("Datos procesados (incluye interpolación matemática):")
     st.dataframe(df_filtrado, use_container_width=True)
