@@ -1,6 +1,6 @@
 /* Cambiar el fondo de la app a un tono oscuro elegante */
 .stApp {
-    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    background: linear-gradient(135deg, #0f172a 0%, #324768 100%);
 }
 
 /* Tarjetas de métricas con efecto de cristal (Glassmorphism) */

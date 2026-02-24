@@ -144,15 +144,20 @@ df_filtrado = df_final[
 # =====================================================
 # 5. GRÁFICOS (Evolución y Ranking)
 # =====================================================
-# Validamos que haya datos antes de dibujar
+# Validamos que haya datos antes de dibujar para evitar errores visuales
 if not df_filtrado.empty:
     col_izq, col_der = st.columns([2, 1]) 
 
     with col_izq:
         st.subheader(t["evolucion_titulo"])
-        # Crea el gráfico de líneas con diseño curvo
+        
+        # Lógica de seguridad: si solo hay 1 año, usamos una línea normal, si hay más, usamos spline curvo
+        forma_linea = "spline" if len(df_filtrado["año"].unique()) > 1 else "linear"
+        
+        # Crea el gráfico de líneas. Se agregaron 'markers=True' para que siempre se vea el punto aunque no haya línea.
         fig_line = px.line(df_filtrado, x="año", y="graduados", color="pais", 
-                           line_shape="spline", 
+                           line_shape=forma_linea, 
+                           markers=True,
                            template="plotly_dark")
 
         fig_line.update_layout(
@@ -167,9 +172,12 @@ if not df_filtrado.empty:
 
 
     with col_der:
-        st.subheader(f"{t['ranking_titulo']} {rango_años[1]}")
-        # Filtramos solo los datos del año final del slider para el ranking
-        data_ranking = df_filtrado[df_filtrado["año"] == rango_años[1]].sort_values("graduados")
+        # Usamos el año final del rango para mostrar siempre algo en el ranking
+        año_actual = rango_años[1]
+        st.subheader(f"{t['ranking_titulo']} {año_actual}")
+        
+        # Filtramos los datos específicamente para el año del ranking
+        data_ranking = df_filtrado[df_filtrado["año"] == año_actual].sort_values("graduados")
         
         if not data_ranking.empty:
             # Gráfico de barras horizontales
@@ -186,8 +194,12 @@ if not df_filtrado.empty:
                        'ticktext': [traducir_pais(n) for n in data_ranking['pais']]}
             )
             st.plotly_chart(fig_bar, use_container_width=True)
+        else:
+            # Si el año movido no tiene datos, mostramos un aviso amigable
+            st.info("No hay datos para el año seleccionado.")
 else:
-    st.warning("Selecciona al menos un país y un rango de años para visualizar los datos.")
+    # Mensaje preventivo si el usuario desmarca todos los países
+    st.warning("Selecciona al menos un país para visualizar los datos.")
 
 # =====================================================
 # 6. SECCIÓN DE FUENTES (Pie de página)
