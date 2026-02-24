@@ -66,10 +66,10 @@ def obtener_datos_stem():
 # 3. PROCESAMIENTO MATEMÁTICO (Interpolación y Proyección)
 # =====================================================
 def procesar_dataset(df):
-    paises = df["pais"].unique()
+    paises_unicos = df["pais"].unique() 
     lista_completa = []
     
-    for pais in countries: # Se cambió la variable para evitar conflictos
+    for pais in paises_unicos: # <--- AQUÍ ESTÁ EL ARREGLO DEL ERROR 'countries'
         sub_df = df[df["pais"] == pais].set_index("año")
         años_todos = pd.DataFrame(index=range(1990, 2026)) 
         sub_df = años_todos.join(sub_df).interpolate(method='linear')
@@ -102,6 +102,7 @@ def traducir_pais(nombre):
     traducciones = {"EEUU": t["pais_eeuu"], "Brasil": t["pais_brasil"], "Canadá": t["pais_canada"]}
     return traducciones.get(nombre, nombre)
 
+# Limpiamos valores nulos para que no aparezca 'nan' en el filtro
 opciones_paises = [p for p in df_final["pais"].unique() if pd.notna(p)]
 
 paises_seleccionados = st.sidebar.multiselect(
@@ -113,26 +114,26 @@ paises_seleccionados = st.sidebar.multiselect(
 
 rango_años = st.sidebar.slider(t["año_sel"], 1990, 2025, (1990, 2025))
 
-# FILTRO MEJORADO
+# FILTRO DE DATOS
 df_filtrado = df_final[
     (df_final["pais"].isin(paises_seleccionados)) & 
     (df_final["año"].between(rango_años[0], rango_años[1]))
 ]
 
 # =====================================================
-# 5. GRÁFICOS (Evolución y Ranking) - ARREGLADO
+# 5. GRÁFICOS (Evolución y Ranking)
 # =====================================================
 if not df_filtrado.empty:
     col_izq, col_der = st.columns([2, 1]) 
 
     with col_izq:
         st.subheader(t["evolucion_titulo"])
-        # Cambiamos spline por linear si hay pocos datos para asegurar visibilidad
+        # Si hay un solo año, usamos líneas rectas, si hay más, usamos curvas
         forma_linea = "spline" if len(df_filtrado["año"].unique()) > 1 else "linear"
         
         fig_line = px.line(df_filtrado, x="año", y="graduados", color="pais", 
                            line_shape=forma_linea,
-                           markers=True, # Siempre muestra los puntos
+                           markers=True, # Bolitas para que se vea siempre el dato
                            template="plotly_dark")
 
         fig_line.update_layout(
@@ -145,12 +146,11 @@ if not df_filtrado.empty:
         st.plotly_chart(fig_line, use_container_width=True)
 
     with col_der:
-        # AQUÍ ESTÁ EL CAMBIO CLAVE: Usamos el año final del slider para el Ranking
-        año_ranking = rango_años[1]
-        st.subheader(f"{t['ranking_titulo']} {año_ranking}")
+        # El Ranking siempre mira al año final que elijas en el slider
+        año_actual = rango_años[1]
+        st.subheader(f"{t['ranking_titulo']} {año_actual}")
         
-        # Buscamos los datos exactos para el año que marca el slider a la derecha
-        data_ranking = df_filtrado[df_filtrado["año"] == año_ranking].sort_values("graduados")
+        data_ranking = df_filtrado[df_filtrado["año"] == año_actual].sort_values("graduados")
         
         if not data_ranking.empty:
             fig_bar = px.bar(data_ranking, x="graduados", y="pais", 
@@ -168,9 +168,8 @@ if not df_filtrado.empty:
             st.plotly_chart(fig_bar, use_container_width=True)
         else:
             st.info("No hay datos para este año específico.")
-
 else:
-    st.warning("Selecciona al menos un país y un rango de años.")
+    st.warning("Selecciona al menos un país para ver los datos.")
 
 # =====================================================
 # 6. SECCIÓN DE FUENTES
