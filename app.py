@@ -3,6 +3,10 @@ import pandas as pd     # Manipula los datos en tablas (DataFrames)
 import numpy as np      # Realiza cálculos matemáticos (potencias, promedios)
 import plotly.express as px  # Genera los gráficos interactivos y coloridos
 
+# Cargar el archivo CSS externo
+with open("style.css") as f:
+    st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+
 # =====================================================
 # 1. DICCIONARIO DE TRADUCCIÓN (Multi-idioma)
 # =====================================================
@@ -140,47 +144,63 @@ df_filtrado = df_final[
 # =====================================================
 # 5. GRÁFICOS (Evolución y Ranking)
 # =====================================================
-col_izq, col_der = st.columns([2, 1]) # Crea una columna ancha y una angosta
+# Validamos que haya datos antes de dibujar
+if not df_filtrado.empty:
+    col_izq, col_der = st.columns([2, 1]) 
 
-with col_izq:
-    st.subheader(t["evolucion_titulo"])
-    # Crea el gráfico de líneas. color="pais" crea una línea distinta por país.
-    fig_line = px.line(df_filtrado, x="año", y="graduados", color="pais", 
-                       template="plotly_dark", markers=True)
-    # Traducimos los nombres que aparecen en la leyenda del gráfico
-    fig_line.for_each_trace(lambda trace: trace.update(name=traducir_pais(trace.name)))
-    st.plotly_chart(fig_line, use_container_width=True)
+    with col_izq:
+        st.subheader(t["evolucion_titulo"])
+        # Crea el gráfico de líneas con diseño curvo
+        fig_line = px.line(df_filtrado, x="año", y="graduados", color="pais", 
+                           line_shape="spline", 
+                           template="plotly_dark")
 
-with col_der:
-    st.subheader(f"{t['ranking_titulo']} {rango_años[1]}")
-    # Filtramos solo los datos del año final del slider para el ranking
-    data_ranking = df_filtrado[df_filtrado["año"] == rango_años[1]].sort_values("graduados")
-    # Gráfico de barras horizontales
-    fig_bar = px.bar(data_ranking, x="graduados", y="pais", 
-                     orientation='h', color="graduados", color_continuous_scale="Agsunset")
-    # Traducimos los nombres en el eje vertical (Y)
-    fig_bar.update_layout(
-        coloraxis_showscale=False, # Oculta la barra de colores lateral
-        yaxis={'tickmode': 'array', 'tickvals': data_ranking['pais'], 
-               'ticktext': [traducir_pais(n) for n in data_ranking['pais']]}
-    )
-    st.plotly_chart(fig_bar, use_container_width=True)
+        fig_line.update_layout(
+            paper_bgcolor='rgba(0,0,0,0)', 
+            plot_bgcolor='rgba(0,0,0,0)',
+            margin=dict(l=0, r=0, t=50, b=0)
+        )
+        
+        # Traducimos los nombres que aparecen en la leyenda del gráfico
+        fig_line.for_each_trace(lambda trace: trace.update(name=traducir_pais(trace.name)))
+        st.plotly_chart(fig_line, use_container_width=True)
+
+
+    with col_der:
+        st.subheader(f"{t['ranking_titulo']} {rango_años[1]}")
+        # Filtramos solo los datos del año final del slider para el ranking
+        data_ranking = df_filtrado[df_filtrado["año"] == rango_años[1]].sort_values("graduados")
+        
+        if not data_ranking.empty:
+            # Gráfico de barras horizontales
+            fig_bar = px.bar(data_ranking, x="graduados", y="pais", 
+                             orientation='h', color="graduados", 
+                             color_continuous_scale="Agsunset",
+                             template="plotly_dark")
+            
+            fig_bar.update_layout(
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)',
+                coloraxis_showscale=False, 
+                yaxis={'tickmode': 'array', 'tickvals': data_ranking['pais'], 
+                       'ticktext': [traducir_pais(n) for n in data_ranking['pais']]}
+            )
+            st.plotly_chart(fig_bar, use_container_width=True)
+else:
+    st.warning("Selecciona al menos un país y un rango de años para visualizar los datos.")
 
 # =====================================================
 # 6. SECCIÓN DE FUENTES (Pie de página)
 # =====================================================
-st.divider() # Línea horizontal decorativa
+st.divider() 
 st.subheader(t["fuente_titulo"])
-# Caja de información azul
 st.info(f"{t['fuente_texto']} UNESCO Institute for Statistics & World Bank Open Data.")
 
-# Links en formato Markdown
 st.markdown("""
 * [UNESCO UIS - Science, Technology and Innovation](https://uis.unesco.org/)
 * [World Bank - Education Statistics](https://data.worldbank.org/topic/education)
 """)
 
-# Tabla desplegable con los números crudos por si alguien quiere auditar
 with st.expander(t["descarga"]):
     st.write("Datos procesados (incluye interpolación matemática):")
     st.dataframe(df_filtrado, use_container_width=True)

@@ -1,0 +1,36 @@
+/* Cambiar el fondo de la app a un tono oscuro elegante */
+.stApp {
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+}
+
+/* Tarjetas de métricas con efecto de cristal (Glassmorphism) */
+[data-testid="stMetricValue"] {
+    background: rgba(255, 255, 255, 0.05);
+    padding: 20px;
+    border-radius: 15px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #38bdf8 !important; /* Color celeste brillante */
+}
+
+/* Estilo de la barra lateral */
+[data-testid="stSidebar"] {
+    background-color: #0f172a !important;
+    border-right: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Títulos más modernos */
+h1 {
+    color: #f8fafc;
+    font-family: 'Inter', sans-serif;
+    font-weight: 800;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+}
+
+/* Arreglo para que los gráficos de Plotly se vean integrados */
+.js-plotly-plot .plotly .main-svg {
+    background: transparent !important;
+}
+/* Cambiar el fondo de la app a un tono oscuro elegante */
+.stApp {
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+}
